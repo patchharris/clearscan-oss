@@ -120,7 +120,7 @@
 
         <div class="mt-6 pt-5 border-t border-slate-800">
           <h3 class="text-sm font-semibold text-slate-200">Job history</h3>
-          <p class="text-xs text-slate-400 mt-1">Saved locally in your browser.</p>
+          <p class="text-xs text-slate-400 mt-1">Saved on the server (shared across devices).</p>
 
           <div class="mt-3">
             <button id="clearHistory"
@@ -192,7 +192,7 @@
       </button>
 
       <div class="text-xs text-slate-400">
-        Made with ❤️ by
+        <span id="buildInfo" class="text-slate-500 mr-2">v0.6.0</span>Made with ❤️ by
         <a href="https://patchharris.info" target="_blank" rel="noopener"
           class="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-400/40">
           Patch Harris
@@ -252,6 +252,6 @@
     </div>
   </aside>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=0.6.0"></script>
 </body>
 </html>

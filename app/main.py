@@ -13,6 +13,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+APP_VERSION = "v0.6.0"
+
 APP_DIR = Path(__file__).resolve().parent
 ENGINE = Path("/srv/engine/clearscan_engine.py")
 
@@ -24,6 +26,7 @@ app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="stati
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
 JOBS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def job_paths(job_id: str) -> dict:
     base = JOBS_DIR / job_id
@@ -37,6 +40,7 @@ def job_paths(job_id: str) -> dict:
         "status": base / "status.json",
     }
 
+
 def safe_filename(name: str) -> str:
     name = (name or "document.pdf").strip()
     name = name.replace("\\", "/").split("/")[-1]
@@ -46,15 +50,22 @@ def safe_filename(name: str) -> str:
     name = re.sub(r"\s+", " ", name).strip()
     return name[:180] or "document.pdf"
 
+
 def optimised_name(original: str) -> str:
     original = safe_filename(original)
     stem = original[:-4] if original.lower().endswith(".pdf") else original
     return f"{stem}-optimised.pdf"
 
+
+def iso_now() -> str:
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+
 def write_status(p: Path, state: str, **extra):
-    payload = {"state": state, "ts": datetime.utcnow().isoformat() + "Z", **extra}
+    payload = {"state": state, "ts": iso_now(), **extra}
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(payload, indent=2))
+    p.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
 
 def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str, optimize: str):
     paths = job_paths(job_id)
@@ -66,13 +77,19 @@ def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str
     paths["out_dir"].mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        "python3", str(ENGINE),
+        "python3",
+        str(ENGINE),
         str(paths["input"]),
-        "--out", str(out_pdf),
-        "--lang", lang,
-        "--mode", mode,
-        "--output-type", output_type,
-        "--optimize", optimize,
+        "--out",
+        str(out_pdf),
+        "--lang",
+        lang,
+        "--mode",
+        mode,
+        "--output-type",
+        output_type,
+        "--optimize",
+        optimize,
     ]
     if force_ocr:
         cmd.append("--force-ocr")
@@ -82,26 +99,88 @@ def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str
     with log_path.open("w", encoding="utf-8") as log:
         log.write("Running:\n" + " ".join(cmd) + "\n\n")
         log.flush()
-        proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, text=True, cwd=str(base))
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            text=True,
+            cwd=str(base),
+        )
         rc = proc.wait()
 
     if rc == 0 and out_pdf.exists():
         in_size = paths["input"].stat().st_size if paths["input"].exists() else None
         out_size = out_pdf.stat().st_size if out_pdf.exists() else None
+
         savings_pct = None
         savings_bytes = None
         if isinstance(in_size, int) and isinstance(out_size, int) and in_size > 0:
             savings_bytes = in_size - out_size
             savings_pct = round((savings_bytes / float(in_size)) * 100.0, 2)
-        write_status(paths["status"], "done",
-                     input_bytes=in_size, output_bytes=out_size,
-                     savings_bytes=savings_bytes, savings_pct=savings_pct)
+
+        write_status(
+            paths["status"],
+            "done",
+            input_bytes=in_size,
+            output_bytes=out_size,
+            savings_bytes=savings_bytes,
+            savings_pct=savings_pct,
+        )
     else:
         write_status(paths["status"], "error", exit_code=rc)
+
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/api/version")
+def api_version():
+    git_sha = None
+    try:
+        git_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(APP_DIR.parent)).decode().strip()
+    except Exception:
+        pass
+    return {"version": APP_VERSION, "git_sha": git_sha, "ts": iso_now()}
+
+
+@app.get("/api/jobs")
+def api_jobs():
+    jobs = []
+    for job_dir in sorted(JOBS_DIR.iterdir(), key=lambda p: p.name, reverse=True):
+        if not job_dir.is_dir():
+            continue
+
+        meta_path = job_dir / "meta.json"
+        status_path = job_dir / "status.json"
+
+        meta = {}
+        status = {}
+        try:
+            if meta_path.exists():
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            meta = {}
+        try:
+            if status_path.exists():
+                status = json.loads(status_path.read_text(encoding="utf-8"))
+        except Exception:
+            status = {}
+
+        job_id = job_dir.name
+        jobs.append({
+            "job_id": job_id,
+            "filename": meta.get("filename"),
+            "created": meta.get("created"),
+            "state": status.get("state"),
+            "input_bytes": status.get("input_bytes") or meta.get("input_bytes"),
+            "output_bytes": status.get("output_bytes"),
+            "savings_pct": status.get("savings_pct"),
+        })
+
+    return {"jobs": jobs}
+
 
 @app.post("/api/upload")
 async def upload_pdf(
@@ -115,32 +194,46 @@ async def upload_pdf(
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
     if size_mb > MAX_UPLOAD_MB:
-        return JSONResponse({"error": f"File too large: {size_mb:.1f}MB (max {MAX_UPLOAD_MB}MB)"}, status_code=413)
+        return JSONResponse(
+            {"error": f"File too large: {size_mb:.1f}MB (max {MAX_UPLOAD_MB}MB)"},
+            status_code=413,
+        )
 
     job_id = uuid.uuid4().hex
     paths = job_paths(job_id)
     paths["base"].mkdir(parents=True, exist_ok=True)
-
     paths["input"].write_bytes(contents)
-    original_name = safe_filename(file.filename or "document.pdf")
 
-    paths["meta"].write_text(json.dumps({
-        "filename": original_name,
-        "created": datetime.utcnow().isoformat() + "Z",
-        "lang": lang,
-        "mode": mode,
-        "force_ocr": force_ocr,
-        "output_type": output_type,
-        "optimize": optimize,
-        "input_bytes": len(contents),
-    }, indent=2))
+    original_name = safe_filename(file.filename or "document.pdf")
+    paths["meta"].write_text(
+        json.dumps(
+            {
+                "job_id": job_id,
+                "filename": original_name,
+                "created": iso_now(),
+                "lang": lang,
+                "mode": mode,
+                "force_ocr": force_ocr,
+                "output_type": output_type,
+                "optimize": optimize,
+                "input_bytes": len(contents),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     write_status(paths["status"], "queued")
 
-    t = threading.Thread(target=run_job, args=(job_id, lang, mode, force_ocr, output_type, optimize), daemon=True)
+    t = threading.Thread(
+        target=run_job,
+        args=(job_id, lang, mode, force_ocr, output_type, optimize),
+        daemon=True,
+    )
     t.start()
 
     return {"job_id": job_id, "filename": original_name, "input_bytes": len(contents)}
+
 
 @app.get("/api/status/{job_id}")
 def status(job_id: str):
@@ -148,15 +241,26 @@ def status(job_id: str):
     if not paths["base"].exists():
         return JSONResponse({"error": "Not found"}, status_code=404)
 
-    status_obj = json.loads(paths["status"].read_text()) if paths["status"].exists() else {}
-    meta_obj = json.loads(paths["meta"].read_text()) if paths["meta"].exists() else {}
+    status_obj = {}
+    meta_obj = {}
+    if paths["status"].exists():
+        status_obj = json.loads(paths["status"].read_text(encoding="utf-8"))
+    if paths["meta"].exists():
+        meta_obj = json.loads(paths["meta"].read_text(encoding="utf-8"))
 
     log_tail = ""
     if paths["log"].exists():
         lines = paths["log"].read_text(errors="ignore").splitlines()[-300:]
         log_tail = "\n".join(lines)
 
-    return {"job_id": job_id, "status": status_obj, "meta": meta_obj, "has_output": paths["output_pdf"].exists(), "log_tail": log_tail}
+    return {
+        "job_id": job_id,
+        "status": status_obj,
+        "meta": meta_obj,
+        "has_output": paths["output_pdf"].exists(),
+        "log_tail": log_tail,
+    }
+
 
 @app.get("/api/download/{job_id}")
 def download(job_id: str):
@@ -167,12 +271,17 @@ def download(job_id: str):
     original_name = "document.pdf"
     if paths["meta"].exists():
         try:
-            meta = json.loads(paths["meta"].read_text())
+            meta = json.loads(paths["meta"].read_text(encoding="utf-8"))
             original_name = meta.get("filename") or original_name
         except Exception:
             pass
 
-    return FileResponse(path=str(paths["output_pdf"]), filename=optimised_name(original_name), media_type="application/pdf")
+    return FileResponse(
+        path=str(paths["output_pdf"]),
+        filename=optimised_name(original_name),
+        media_type="application/pdf",
+    )
+
 
 @app.post("/api/delete/{job_id}")
 def delete(job_id: str):
