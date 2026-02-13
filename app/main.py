@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-APP_VERSION = "v0.6.1"
+APP_VERSION = "v0.6.2"
 
 APP_DIR = Path(__file__).resolve().parent
 ENGINE = Path("/srv/engine/clearscan_engine.py")
@@ -130,6 +130,47 @@ def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str
         write_status(paths["status"], "error", exit_code=rc)
 
 
+def create_job_from_upload(file: UploadFile, contents: bytes, lang: str, mode: str, force_ocr: bool, output_type: str, optimize: str):
+    size_mb = len(contents) / (1024 * 1024)
+    if size_mb > MAX_UPLOAD_MB:
+        return None, f"File too large: {size_mb:.1f}MB (max {MAX_UPLOAD_MB}MB)"
+
+    job_id = uuid.uuid4().hex
+    paths = job_paths(job_id)
+    paths["base"].mkdir(parents=True, exist_ok=True)
+    paths["input"].write_bytes(contents)
+
+    original_name = safe_filename(file.filename or "document.pdf")
+    paths["meta"].write_text(
+        json.dumps(
+            {
+                "job_id": job_id,
+                "filename": original_name,
+                "created": iso_now(),
+                "lang": lang,
+                "mode": mode,
+                "force_ocr": force_ocr,
+                "output_type": output_type,
+                "optimize": optimize,
+                "input_bytes": len(contents),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    write_status(paths["status"], "queued")
+
+    t = threading.Thread(
+        target=run_job,
+        args=(job_id, lang, mode, force_ocr, output_type, optimize),
+        daemon=True,
+    )
+    t.start()
+
+    return {"job_id": job_id, "filename": original_name, "input_bytes": len(contents)}, None
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -192,47 +233,44 @@ async def upload_pdf(
     optimize: str = Form("3"),
 ):
     contents = await file.read()
-    size_mb = len(contents) / (1024 * 1024)
-    if size_mb > MAX_UPLOAD_MB:
+    job, err = create_job_from_upload(file, contents, lang, mode, force_ocr, output_type, optimize)
+    if err:
+        return JSONResponse({"error": err}, status_code=413)
+    return job
+
+
+@app.post("/api/upload-batch")
+async def upload_pdf_batch(
+    files: list[UploadFile] = File(...),
+    lang: str = Form("eng"),
+    mode: str = Form("best"),
+    force_ocr: bool = Form(False),
+    output_type: str = Form("pdf"),
+    optimize: str = Form("3"),
+):
+    if not files:
+        return JSONResponse({"error": "No files provided"}, status_code=400)
+
+    jobs = []
+    errors = []
+    for file in files:
+        contents = await file.read()
+        job, err = create_job_from_upload(file, contents, lang, mode, force_ocr, output_type, optimize)
+        if err:
+            errors.append({
+                "filename": safe_filename(file.filename or "document.pdf"),
+                "error": err,
+            })
+            continue
+        jobs.append(job)
+
+    if not jobs:
         return JSONResponse(
-            {"error": f"File too large: {size_mb:.1f}MB (max {MAX_UPLOAD_MB}MB)"},
-            status_code=413,
+            {"error": "No files were queued", "jobs": [], "errors": errors},
+            status_code=413 if errors else 400,
         )
 
-    job_id = uuid.uuid4().hex
-    paths = job_paths(job_id)
-    paths["base"].mkdir(parents=True, exist_ok=True)
-    paths["input"].write_bytes(contents)
-
-    original_name = safe_filename(file.filename or "document.pdf")
-    paths["meta"].write_text(
-        json.dumps(
-            {
-                "job_id": job_id,
-                "filename": original_name,
-                "created": iso_now(),
-                "lang": lang,
-                "mode": mode,
-                "force_ocr": force_ocr,
-                "output_type": output_type,
-                "optimize": optimize,
-                "input_bytes": len(contents),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
-    write_status(paths["status"], "queued")
-
-    t = threading.Thread(
-        target=run_job,
-        args=(job_id, lang, mode, force_ocr, output_type, optimize),
-        daemon=True,
-    )
-    t.start()
-
-    return {"job_id": job_id, "filename": original_name, "input_bytes": len(contents)}
+    return {"jobs": jobs, "errors": errors}
 
 
 @app.get("/api/status/{job_id}")

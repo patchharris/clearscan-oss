@@ -59,7 +59,7 @@
       <!-- New job -->
       <section class="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 smooth">
         <h2 class="text-lg font-semibold">New job</h2>
-        <p class="text-slate-400 text-xs mt-1">iPhone: tap the upload area to choose a PDF.</p>
+        <p class="text-slate-400 text-xs mt-1">iPhone: tap the upload area to choose one or more PDFs.</p>
 
         <form id="uploadForm" class="mt-4 space-y-4">
           <div>
@@ -70,15 +70,15 @@
                      hover:border-indigo-500/70 hover:bg-slate-950/70 cursor-pointer">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
-                  <div class="font-semibold">Tap to choose a PDF</div>
+                  <div class="font-semibold">Tap to choose PDF(s)</div>
                   <div class="text-slate-400 text-xs mt-1">Drag & drop works on desktop</div>
                 </div>
-                <div class="text-slate-400 text-xs">PDF only</div>
+                <div class="text-slate-400 text-xs">PDF files</div>
               </div>
               <div id="fileName" class="mt-2 text-xs text-slate-400 truncate"></div>
             </div>
 
-            <input id="fileInput" name="file" type="file" accept="application/pdf" required class="hidden" />
+            <input id="fileInput" name="file" type="file" accept="application/pdf" required multiple class="hidden" />
           </div>
 
           <div>
@@ -219,7 +219,7 @@
       </button>
 
       <div class="text-xs text-slate-400">
-        <span id="buildInfo" class="text-slate-500 mr-2">v0.6.1</span>Made with ❤️ by
+        <span id="buildInfo" class="text-slate-500 mr-2">v0.6.2</span>Made with ❤️ by
         <a href="https://patchharris.info" target="_blank" rel="noopener"
           class="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-400/40">
           Patch Harris
@@ -245,7 +245,11 @@
       </div>
 
       <div class="p-4 max-h-[60vh] overflow-auto">
-        <pre class="whitespace-pre-wrap text-xs text-slate-200 leading-relaxed">### v0.6.1 — Frontend stability fixes
+        <pre class="whitespace-pre-wrap text-xs text-slate-200 leading-relaxed">### v0.6.2 — Batch upload
+- Added batch PDF upload support from the web UI
+- Added backend /api/upload-batch endpoint to queue multiple files in one request
+
+### v0.6.1 — Frontend stability fixes
 - Fixed broken JavaScript caused by merged duplicate history code
 - Restored working changelog drawer open/close behavior
 - Fixed theme toggle so light/dark mode updates the full UI and button label
@@ -284,7 +288,7 @@
     </div>
   </aside>
 
-  <script src="/static/app.js?v=0.6.1"></script>
+  <script src="/static/app.js?v=0.6.2"></script>
 </body>
 </html>
 

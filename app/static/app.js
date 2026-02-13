@@ -69,7 +69,7 @@ async function loadVersion() {
     const v = await res.json();
     if (buildInfo) {
       const sha = v.git_sha ? ` (${String(v.git_sha).slice(0,7)})` : "";
-      buildInfo.textContent = `${v.version || "v0.6.1"}${sha}`;
+      buildInfo.textContent = `${v.version || "v0.6.2"}${sha}`;
     }
   } catch {}
 }
@@ -80,9 +80,21 @@ themeToggle?.addEventListener("click", () => setTheme(getTheme() === "dark" ? "l
 // --- File picker + drag/drop ---
 dropZone?.addEventListener("click", () => fileInput?.click());
 
+function updateSelectedFileLabel(files) {
+  const selected = files || fileInput?.files;
+  if (!selected || !selected.length) {
+    fileName.textContent = "";
+    return;
+  }
+  if (selected.length === 1) {
+    fileName.textContent = `Selected: ${selected[0].name}`;
+    return;
+  }
+  fileName.textContent = `Selected: ${selected.length} files`;
+}
+
 fileInput?.addEventListener("change", () => {
-  const f = fileInput.files?.[0];
-  fileName.textContent = f ? `Selected: ${f.name}` : "";
+  updateSelectedFileLabel(fileInput.files);
 });
 
 ["dragenter", "dragover"].forEach((evt) =>
@@ -92,13 +104,27 @@ fileInput?.addEventListener("change", () => {
     dropZone.classList.add("border-indigo-500/70");
   })
 );
-["dragleave", "drop"].forEach((evt) =>
+["dragleave"].forEach((evt) =>
   dropZone?.addEventListener(evt, (e) => {
     e.preventDefault();
     e.stopPropagation();
     dropZone.classList.remove("border-indigo-500/70");
   })
 );
+
+dropZone?.addEventListener("drop", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove("border-indigo-500/70");
+
+  const droppedFiles = e.dataTransfer?.files;
+  if (!droppedFiles || !droppedFiles.length) return;
+
+  try {
+    fileInput.files = droppedFiles;
+  } catch {}
+  updateSelectedFileLabel(droppedFiles);
+});
 
 // --- Helpers ---
 function humanBytes(n) {
@@ -332,29 +358,66 @@ async function refresh(jobId, updateHistory = false) {
 uploadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  jobInfo.textContent = "Uploading...";
-  savingsLine.textContent = "";
-
-  const formData = new FormData(uploadForm);
-
-  const res = await fetch("/api/upload", { method: "POST", body: formData });
-  const data = await res.json();
-
-  if (!res.ok) {
-    jobInfo.textContent = data.error || "Upload failed";
+  const selectedFiles = fileInput?.files;
+  const fileCount = selectedFiles?.length || 0;
+  if (!fileCount) {
+    jobInfo.textContent = "Please choose at least one PDF.";
     return;
   }
 
-  const jobId = data.job_id;
-  jobInfo.textContent = `Job created: ${jobId}`;
-  jobIdInput.value = jobId;
+  jobInfo.textContent = fileCount > 1 ? `Uploading ${fileCount} files...` : "Uploading...";
+  savingsLine.textContent = "";
 
-  upsertLocalHistory({
-    jobId,
-    filename: data.filename,
-    ts: new Date().toISOString(),
-    inputBytes: typeof data.input_bytes === "number" ? data.input_bytes : undefined,
-  });
+  const formData = new FormData(uploadForm);
+  let endpoint = "/api/upload";
+  let requestBody = formData;
+
+  if (fileCount > 1) {
+    endpoint = "/api/upload-batch";
+    const batchData = new FormData();
+    for (const f of selectedFiles) {
+      batchData.append("files", f, f.name);
+    }
+    batchData.append("lang", String(formData.get("lang") || "eng"));
+    batchData.append("mode", String(formData.get("mode") || "best"));
+    batchData.append("output_type", String(formData.get("output_type") || "pdf"));
+    batchData.append("optimize", String(formData.get("optimize") || "3"));
+    batchData.append("force_ocr", formData.has("force_ocr") ? "true" : "false");
+    requestBody = batchData;
+  }
+
+  const res = await fetch(endpoint, { method: "POST", body: requestBody });
+  const data = await res.json();
+
+  if (!res.ok) {
+    const failed = Array.isArray(data.errors) ? ` (${data.errors.length} failed)` : "";
+    jobInfo.textContent = `${data.error || "Upload failed"}${failed}`;
+    return;
+  }
+
+  const createdJobs = Array.isArray(data.jobs)
+    ? data.jobs
+    : (data.job_id ? [data] : []);
+  if (!createdJobs.length) {
+    jobInfo.textContent = "No jobs were created.";
+    return;
+  }
+
+  const failedCount = Array.isArray(data.errors) ? data.errors.length : 0;
+  jobInfo.textContent = `${createdJobs.length} job${createdJobs.length === 1 ? "" : "s"} created${failedCount ? `, ${failedCount} failed` : ""}.`;
+
+  for (const job of createdJobs) {
+    upsertLocalHistory({
+      jobId: job.job_id,
+      filename: job.filename,
+      ts: new Date().toISOString(),
+      inputBytes: typeof job.input_bytes === "number" ? job.input_bytes : undefined,
+    });
+  }
+  await renderHistory();
+
+  const jobId = createdJobs[0].job_id;
+  jobIdInput.value = jobId;
 
   await refresh(jobId, true);
 
