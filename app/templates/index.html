@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ClearScan OSS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="dark light">
+  <style>.smooth{transition:background-color .2s ease,color .2s ease,border-color .2s ease;}</style>
+</head>
+
+<body class="h-full bg-slate-950 text-slate-100 smooth">
+  <div class="max-w-6xl mx-auto px-6 py-10">
+    <header class="flex items-start justify-between gap-6">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">ClearScan OSS</h1>
+        <p class="text-slate-300 mt-2">Upload a PDF → get a <span class="font-semibold">searchable</span>, <span class="font-semibold">optimized</span> output. Digital PDFs keep their text; scans get OCR.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="themeToggle" class="rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 text-sm font-semibold hover:bg-slate-800 smooth">Toggle theme</button>
+      </div>
+    </header>
+
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+      <section class="lg:col-span-1 rounded-2xl bg-slate-900/60 border border-slate-800 p-6 smooth">
+        <h2 class="text-lg font-semibold">New job</h2>
+        <p class="text-slate-400 text-sm mt-1">iPhone: tap the upload area to choose a PDF.</p>
+
+        <form id="uploadForm" class="mt-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-200">PDF</label>
+            <div id="dropZone"
+                 class="relative mt-2 rounded-xl border-2 border-dashed border-slate-700 bg-slate-950 p-5 text-sm text-slate-300 smooth hover:border-indigo-500/70 cursor-pointer overflow-hidden">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <div class="font-semibold text-slate-200">Tap to choose a PDF</div>
+                  <div class="text-slate-400 mt-1 text-sm">Drag & drop works on desktop</div>
+                </div>
+                <div class="text-slate-400 text-xs">PDF only</div>
+              </div>
+              <div id="fileName" class="mt-3 text-xs text-slate-400 truncate"></div>
+              <input id="fileInput" name="file" type="file" accept=".pdf,application/pdf" required
+                     class="absolute inset-0 w-full h-full opacity-0" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-200">Mode</label>
+              <select name="mode" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth">
+                <option value="best" selected>Best (deskew/clean/rotate)</option>
+                <option value="fast">Fast</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-200">Language</label>
+              <input name="lang" type="text" value="eng"
+                     class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-200">Output type</label>
+              <select name="output_type" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth">
+                <option value="pdf" selected>PDF (smaller)</option>
+                <option value="pdfa-2">PDF/A-2 (archival)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-200">Optimize</label>
+              <select name="optimize" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth">
+                <option value="0">0 (off)</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3 (smallest)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <input id="forceOcr" name="force_ocr" type="checkbox"
+                   class="h-4 w-4 rounded border-slate-600 bg-slate-950 text-indigo-600 focus:ring-indigo-500" />
+            <label for="forceOcr" class="text-sm text-slate-200">Force OCR (even if text exists)</label>
+          </div>
+
+          <button type="submit" class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition">
+            Upload & Process
+          </button>
+
+          <div id="jobInfo" class="text-sm text-slate-400"></div>
+
+          <div class="mt-6 pt-5 border-t border-slate-800">
+            <h3 class="text-sm font-semibold text-slate-200">Job history</h3>
+            <p class="text-xs text-slate-400 mt-1">Saved locally in your browser.</p>
+            <div class="mt-3 flex items-center gap-2">
+              <button id="clearHistory" type="button" class="text-xs px-2 py-1 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 smooth">Clear</button>
+            </div>
+            <ul id="historyList" class="mt-3 space-y-2 text-sm"></ul>
+          </div>
+        </form>
+      </section>
+
+      <section class="lg:col-span-2 rounded-2xl bg-slate-900/60 border border-slate-800 p-6 smooth">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Job status</h2>
+          <span id="statePill" class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-200 border border-slate-700 smooth">idle</span>
+        </div>
+
+        <div class="mt-4 flex flex-col sm:flex-row gap-3">
+          <input id="jobIdInput" type="text" placeholder="Job ID"
+                 class="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth" />
+          <button id="checkBtn" type="button"
+                  class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold hover:bg-slate-700 transition border border-slate-700 smooth">
+            Check
+          </button>
+          <button id="downloadBtn" type="button" disabled
+                  class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 hover:bg-emerald-500 transition">
+            Download
+          </button>
+          <button id="deleteBtn" type="button" disabled
+                  class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 hover:bg-rose-500 transition">
+            Delete
+          </button>
+        </div>
+
+        <div class="mt-4">
+          <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700 smooth">
+            <div id="progressBar" class="h-2 bg-indigo-500 w-0 transition-all"></div>
+          </div>
+          <p id="statusLine" class="mt-3 text-sm text-slate-400"></p>
+          <p id="savingsLine" class="mt-1 text-sm text-emerald-300"></p>
+        </div>
+
+        <div class="mt-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-200">Log tail</h3>
+            <button id="copyLog" type="button" class="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition smooth">Copy</button>
+          </div>
+          <pre id="logBox" class="mt-2 text-xs bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-auto max-h-[28rem] smooth">(log will appear here)</pre>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-10 text-xs text-slate-400">
+      <details class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 smooth">
+        <summary class="cursor-pointer font-semibold text-slate-200">Changelog</summary>
+        <pre class="mt-3 whitespace-pre-wrap text-slate-200">v0.5.4 — History shows sizes + savings
+- Job history shows original filename, old/new size, and % saving once complete
+- Status panel still shows savings and download uses “-optimised” name</pre>
+      </details>
+      <div class="mt-4 text-slate-400">
+        Made with ❤️ by
+        <a href="https://patchharris.info" target="_blank" rel="noopener"
+           class="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-400/40">
+          Patch Harris
+        </a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

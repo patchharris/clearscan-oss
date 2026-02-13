@@ -1,0 +1,265 @@
+const uploadForm = document.getElementById("uploadForm");
+const jobInfo = document.getElementById("jobInfo");
+const jobIdInput = document.getElementById("jobIdInput");
+const statusLine = document.getElementById("statusLine");
+const savingsLine = document.getElementById("savingsLine");
+const logBox = document.getElementById("logBox");
+const checkBtn = document.getElementById("checkBtn");
+const downloadBtn = document.getElementById("downloadBtn");
+const deleteBtn = document.getElementById("deleteBtn");
+const statePill = document.getElementById("statePill");
+const progressBar = document.getElementById("progressBar");
+const copyLog = document.getElementById("copyLog");
+
+const themeToggle = document.getElementById("themeToggle");
+const dropZone = document.getElementById("dropZone");
+const fileInput = document.getElementById("fileInput");
+const fileName = document.getElementById("fileName");
+
+const historyList = document.getElementById("historyList");
+const clearHistoryBtn = document.getElementById("clearHistory");
+
+let pollTimer = null;
+
+// Theme
+const THEME_KEY = "clearscan_theme";
+function applyTheme(theme) {
+  const body = document.body;
+  if (theme === "light") {
+    body.classList.remove("bg-slate-950","text-slate-100");
+    body.classList.add("bg-slate-50","text-slate-900");
+    document.documentElement.style.colorScheme = "light";
+  } else {
+    body.classList.remove("bg-slate-50","text-slate-900");
+    body.classList.add("bg-slate-950","text-slate-100");
+    document.documentElement.style.colorScheme = "dark";
+  }
+}
+function getTheme() { return localStorage.getItem(THEME_KEY) || "dark"; }
+function setTheme(theme) { localStorage.setItem(THEME_KEY, theme); applyTheme(theme); }
+applyTheme(getTheme());
+themeToggle?.addEventListener("click", () => setTheme(getTheme()==="dark" ? "light" : "dark"));
+
+// File chosen
+fileInput?.addEventListener("change", () => {
+  const f = fileInput.files?.[0];
+  fileName.textContent = f ? `Selected: ${f.name}` : "";
+});
+
+// Drag highlight
+["dragenter","dragover"].forEach(evt => dropZone?.addEventListener(evt, (e)=>{e.preventDefault();e.stopPropagation();dropZone.classList.add("border-indigo-500/70");}));
+["dragleave","drop"].forEach(evt => dropZone?.addEventListener(evt, (e)=>{e.preventDefault();e.stopPropagation();dropZone.classList.remove("border-indigo-500/70");}));
+
+// Utils
+function humanBytes(n){
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "";
+  const units = ["B","KB","MB","GB"];
+  let x = Number(n), u = 0;
+  while (x >= 1024 && u < units.length-1) { x /= 1024; u++; }
+  return `${x.toFixed(u===0?0:2)} ${units[u]}`;
+}
+
+// History storage
+const HISTORY_KEY = "clearscan_job_history_v2";
+function loadHistory(){ try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; } }
+function saveHistory(items){ localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0,30))); }
+
+function upsertHistory(entry){
+  const items = loadHistory();
+  const idx = items.findIndex(x => x.jobId === entry.jobId);
+  if (idx >= 0) items[idx] = { ...items[idx], ...entry };
+  else items.unshift(entry);
+  saveHistory(items);
+  renderHistory();
+}
+
+function renderHistory(){
+  const items = loadHistory();
+  historyList.innerHTML = "";
+  if (!items.length) { historyList.innerHTML = `<li class="text-xs text-slate-400">No jobs yet.</li>`; return; }
+
+  for (const item of items) {
+    const li = document.createElement("li");
+    li.className = "rounded-lg bg-slate-950/60 border border-slate-800 px-3 py-2";
+
+    const when = item.ts ? new Date(item.ts).toLocaleString() : "";
+    const sizesKnown = typeof item.inputBytes === "number" && typeof item.outputBytes === "number" && typeof item.savingsPct === "number";
+    const sizesText = sizesKnown
+      ? `${humanBytes(item.inputBytes)} → ${humanBytes(item.outputBytes)}  (-${Math.abs(item.savingsPct).toFixed(2)}%)`
+      : "Sizes: pending…";
+
+    li.innerHTML = `
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <div class="font-semibold truncate">${item.filename || "(unknown.pdf)"}</div>
+          <div class="text-[10px] text-slate-400 font-mono truncate">${item.jobId}</div>
+          <div class="text-[10px] text-slate-500">${when}</div>
+          <div class="text-xs text-emerald-300 mt-1">${sizesText}</div>
+        </div>
+        <div class="flex flex-col gap-2 shrink-0">
+          <button class="useJob text-xs px-2 py-1 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800">Use</button>
+          <button class="dlJob text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-500">DL</button>
+        </div>
+      </div>
+    `;
+
+    li.querySelector(".useJob").addEventListener("click", async () => {
+      jobIdInput.value = item.jobId;
+      await refresh(item.jobId, true);
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(() => refresh(item.jobId, true), 1500);
+    });
+    li.querySelector(".dlJob").addEventListener("click", () => { window.location.href = `/api/download/${item.jobId}`; });
+    historyList.appendChild(li);
+  }
+}
+
+clearHistoryBtn?.addEventListener("click", () => { saveHistory([]); renderHistory(); });
+renderHistory();
+
+async function fetchStatus(jobId){
+  const res = await fetch(`/api/status/${jobId}`);
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+function estimateProgress(logTail){
+  if (!logTail) return 0;
+  const s = logTail.toLowerCase();
+  if (s.includes("complete") || s.includes("finished") || s.includes("output")) return 95;
+  if (s.includes("optim") || s.includes("optimiz")) return 80;
+  if (s.includes("ocr") || s.includes("tesseract")) return 60;
+  if (s.includes("page") || s.includes("analy")) return 35;
+  return 10;
+}
+
+function setPill(state){
+  statePill.textContent = state || "unknown";
+  statePill.classList.remove("bg-slate-800","bg-indigo-700","bg-emerald-700","bg-rose-700");
+  if (state === "running") statePill.classList.add("bg-indigo-700");
+  else if (state === "done") statePill.classList.add("bg-emerald-700");
+  else if (state === "error") statePill.classList.add("bg-rose-700");
+  else statePill.classList.add("bg-slate-800");
+}
+
+function setButtons(hasOutput, exists){
+  downloadBtn.disabled = !hasOutput;
+  deleteBtn.disabled = !exists;
+}
+
+async function refresh(jobId, updateHistory=false){
+  const data = await fetchStatus(jobId);
+  if (!data) {
+    statusLine.textContent = "Not found.";
+    savingsLine.textContent = "";
+    setPill("unknown");
+    progressBar.style.width = "0%";
+    return;
+  }
+
+  const state = data.status?.state || "unknown";
+  const ts = data.status?.ts || "";
+  setPill(state);
+  logBox.textContent = data.log_tail || "";
+  progressBar.style.width = `${estimateProgress(data.log_tail)}%`;
+  statusLine.textContent = `State: ${state}${ts ? " @ " + ts : ""}`;
+
+  const inB = data.status?.input_bytes ?? data.meta?.input_bytes;
+  const outB = data.status?.output_bytes;
+  const pct = data.status?.savings_pct;
+
+  if (state === "done" && typeof inB === "number" && typeof outB === "number" && typeof pct === "number") {
+    const savedB = inB - outB;
+    savingsLine.textContent = `Size: ${humanBytes(inB)} → ${humanBytes(outB)}  (-${Math.abs(pct).toFixed(2)}%, saved ${humanBytes(Math.abs(savedB))})`;
+    if (updateHistory) {
+      upsertHistory({
+        jobId,
+        filename: data.meta?.filename,
+        ts: data.meta?.created || new Date().toISOString(),
+        inputBytes: inB,
+        outputBytes: outB,
+        savingsPct: pct,
+      });
+    }
+  } else {
+    savingsLine.textContent = "";
+    if (updateHistory) {
+      upsertHistory({
+        jobId,
+        filename: data.meta?.filename,
+        ts: data.meta?.created || new Date().toISOString(),
+        inputBytes: (typeof inB === "number") ? inB : undefined,
+      });
+    }
+  }
+
+  setButtons(data.has_output, true);
+  if (state === "done" || state === "error") { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+}
+
+uploadForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  jobInfo.textContent = "Uploading...";
+  savingsLine.textContent = "";
+  const formData = new FormData(uploadForm);
+
+  const res = await fetch("/api/upload", { method: "POST", body: formData });
+  const data = await res.json();
+  if (!res.ok) { jobInfo.textContent = data.error || "Upload failed"; return; }
+
+  const jobId = data.job_id;
+  jobInfo.textContent = `Job created: ${jobId}`;
+  jobIdInput.value = jobId;
+
+  upsertHistory({
+    jobId,
+    filename: data.filename,
+    ts: new Date().toISOString(),
+    inputBytes: (typeof data.input_bytes === "number") ? data.input_bytes : undefined,
+  });
+
+  await refresh(jobId, true);
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => refresh(jobId, true), 1500);
+});
+
+checkBtn.addEventListener("click", async () => {
+  const jobId = jobIdInput.value.trim();
+  if (!jobId) return;
+  await refresh(jobId, true);
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => refresh(jobId, true), 1500);
+});
+
+downloadBtn.addEventListener("click", () => {
+  const jobId = jobIdInput.value.trim();
+  if (!jobId) return;
+  window.location.href = `/api/download/${jobId}`;
+});
+
+deleteBtn.addEventListener("click", async () => {
+  const jobId = jobIdInput.value.trim();
+  if (!jobId) return;
+  await fetch(`/api/delete/${jobId}`, { method: "POST" });
+  statusLine.textContent = "Deleted.";
+  savingsLine.textContent = "";
+  logBox.textContent = "";
+  progressBar.style.width = "0%";
+  setPill("idle");
+  setButtons(false, false);
+
+  const items = loadHistory().filter(x => x.jobId !== jobId);
+  saveHistory(items);
+  renderHistory();
+
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+});
+
+copyLog.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(logBox.textContent || "");
+    copyLog.textContent = "Copied!";
+    setTimeout(() => (copyLog.textContent = "Copy"), 800);
+  } catch {}
+});
