@@ -6,158 +6,251 @@
   <title>ClearScan OSS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="dark light">
-  <style>.smooth{transition:background-color .2s ease,color .2s ease,border-color .2s ease;}</style>
+  <style>
+    .smooth { transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .25s ease, opacity .25s ease; }
+  </style>
 </head>
 
 <body class="h-full bg-slate-950 text-slate-100 smooth">
-  <div class="max-w-6xl mx-auto px-6 py-10">
-    <header class="flex items-start justify-between gap-6">
+  <!-- Add bottom padding so fixed footer doesn't cover content -->
+  <div class="max-w-3xl mx-auto px-5 pt-8 pb-28">
+    <header class="flex items-start justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight">ClearScan OSS</h1>
-        <p class="text-slate-300 mt-2">Upload a PDF → get a <span class="font-semibold">searchable</span>, <span class="font-semibold">optimized</span> output. Digital PDFs keep their text; scans get OCR.</p>
+        <h1 class="text-2xl font-bold tracking-tight">ClearScan OSS</h1>
+        <p class="text-slate-300 mt-1 text-sm">
+          Upload a PDF → get a searchable, optimized output. Digital PDFs keep their text; scans get OCR.
+        </p>
       </div>
-      <div class="flex items-center gap-3">
-        <button id="themeToggle" class="rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 text-sm font-semibold hover:bg-slate-800 smooth">Toggle theme</button>
-      </div>
+
+      <button id="themeToggle"
+        class="shrink-0 rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 text-xs font-semibold hover:bg-slate-800 smooth">
+        Toggle theme
+      </button>
     </header>
 
-    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-      <section class="lg:col-span-1 rounded-2xl bg-slate-900/60 border border-slate-800 p-6 smooth">
+    <main class="mt-6 space-y-6">
+      <!-- New job -->
+      <section class="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 smooth">
         <h2 class="text-lg font-semibold">New job</h2>
-        <p class="text-slate-400 text-sm mt-1">iPhone: tap the upload area to choose a PDF.</p>
+        <p class="text-slate-400 text-xs mt-1">iPhone: tap the upload area to choose a PDF.</p>
 
-        <form id="uploadForm" class="mt-5 space-y-4">
+        <form id="uploadForm" class="mt-4 space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-200">PDF</label>
+
             <div id="dropZone"
-                 class="relative mt-2 rounded-xl border-2 border-dashed border-slate-700 bg-slate-950 p-5 text-sm text-slate-300 smooth hover:border-indigo-500/70 cursor-pointer overflow-hidden">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <div class="font-semibold text-slate-200">Tap to choose a PDF</div>
-                  <div class="text-slate-400 mt-1 text-sm">Drag & drop works on desktop</div>
+              class="mt-2 rounded-xl border-2 border-dashed border-slate-700 bg-slate-950 p-4 text-sm text-slate-300 smooth
+                     hover:border-indigo-500/70 hover:bg-slate-950/70 cursor-pointer">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="font-semibold">Tap to choose a PDF</div>
+                  <div class="text-slate-400 text-xs mt-1">Drag & drop works on desktop</div>
                 </div>
                 <div class="text-slate-400 text-xs">PDF only</div>
               </div>
-              <div id="fileName" class="mt-3 text-xs text-slate-400 truncate"></div>
-              <input id="fileInput" name="file" type="file" accept=".pdf,application/pdf" required
-                     class="absolute inset-0 w-full h-full opacity-0" />
+              <div id="fileName" class="mt-2 text-xs text-slate-400 truncate"></div>
+            </div>
+
+            <input id="fileInput" name="file" type="file" accept="application/pdf" required class="hidden" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-200">Mode</label>
+            <div class="mt-2 flex gap-3">
+              <label class="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 cursor-pointer hover:bg-slate-900/70 smooth">
+                <div class="flex items-center gap-2">
+                  <input type="radio" name="mode" value="best" checked class="accent-indigo-500">
+                  <div class="text-sm font-semibold">Best</div>
+                </div>
+                <div class="text-xs text-slate-400 mt-1">Deskew / clean / rotate</div>
+              </label>
+
+              <label class="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 cursor-pointer hover:bg-slate-900/70 smooth">
+                <div class="flex items-center gap-2">
+                  <input type="radio" name="mode" value="fast" class="accent-indigo-500">
+                  <div class="text-sm font-semibold">Fast</div>
+                </div>
+                <div class="text-xs text-slate-400 mt-1">Less processing</div>
+              </label>
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-sm font-medium text-slate-200">Mode</label>
-              <select name="mode" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth">
-                <option value="best" selected>Best (deskew/clean/rotate)</option>
-                <option value="fast">Fast</option>
-              </select>
-            </div>
             <div>
               <label class="block text-sm font-medium text-slate-200">Language</label>
               <input name="lang" type="text" value="eng"
-                     class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth" />
+                class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm smooth" />
             </div>
-          </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium text-slate-200">Output type</label>
-              <select name="output_type" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth">
+              <select name="output_type"
+                class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm smooth">
                 <option value="pdf" selected>PDF (smaller)</option>
-                <option value="pdfa-2">PDF/A-2 (archival)</option>
+                <option value="pdfa2">PDF/A-2 (archival)</option>
               </select>
             </div>
+
             <div>
               <label class="block text-sm font-medium text-slate-200">Optimize</label>
-              <select name="optimize" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth">
+              <select name="optimize"
+                class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm smooth">
                 <option value="0">0 (off)</option>
                 <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3" selected>3 (smallest)</option>
               </select>
             </div>
+
+            <div class="flex items-end">
+              <label class="flex items-center gap-2 text-sm text-slate-200 select-none">
+                <input name="force_ocr" type="checkbox" class="h-4 w-4 accent-indigo-500">
+                Force OCR (even if text exists)
+              </label>
+            </div>
           </div>
 
-          <div class="flex items-center gap-3">
-            <input id="forceOcr" name="force_ocr" type="checkbox"
-                   class="h-4 w-4 rounded border-slate-600 bg-slate-950 text-indigo-600 focus:ring-indigo-500" />
-            <label for="forceOcr" class="text-sm text-slate-200">Force OCR (even if text exists)</label>
-          </div>
-
-          <button type="submit" class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition">
-            Upload & Process
+          <button type="submit"
+            class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition">
+            Upload &amp; Process
           </button>
 
           <div id="jobInfo" class="text-sm text-slate-400"></div>
-
-          <div class="mt-6 pt-5 border-t border-slate-800">
-            <h3 class="text-sm font-semibold text-slate-200">Job history</h3>
-            <p class="text-xs text-slate-400 mt-1">Saved locally in your browser.</p>
-            <div class="mt-3 flex items-center gap-2">
-              <button id="clearHistory" type="button" class="text-xs px-2 py-1 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 smooth">Clear</button>
-            </div>
-            <ul id="historyList" class="mt-3 space-y-2 text-sm"></ul>
-          </div>
         </form>
+
+        <div class="mt-6 pt-5 border-t border-slate-800">
+          <h3 class="text-sm font-semibold text-slate-200">Job history</h3>
+          <p class="text-xs text-slate-400 mt-1">Saved locally in your browser.</p>
+
+          <div class="mt-3">
+            <button id="clearHistory"
+              class="text-xs px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 smooth">
+              Clear
+            </button>
+          </div>
+
+          <ul id="historyList" class="mt-3 space-y-2 text-sm"></ul>
+        </div>
       </section>
 
-      <section class="lg:col-span-2 rounded-2xl bg-slate-900/60 border border-slate-800 p-6 smooth">
+      <!-- Status -->
+      <section class="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 smooth">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">Job status</h2>
-          <span id="statePill" class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-200 border border-slate-700 smooth">idle</span>
+          <span id="statePill"
+            class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-200 border border-slate-700 smooth">idle</span>
         </div>
 
-        <div class="mt-4 flex flex-col sm:flex-row gap-3">
+        <div class="mt-4 space-y-3">
           <input id="jobIdInput" type="text" placeholder="Job ID"
-                 class="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm smooth" />
+            class="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm smooth" />
+
           <button id="checkBtn" type="button"
-                  class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold hover:bg-slate-700 transition border border-slate-700 smooth">
+            class="w-full rounded-lg bg-slate-800 px-4 py-3 text-sm font-semibold hover:bg-slate-700 transition border border-slate-700 smooth">
             Check
           </button>
+
           <button id="downloadBtn" type="button" disabled
-                  class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 hover:bg-emerald-500 transition">
+            class="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 hover:bg-emerald-500 transition">
             Download
           </button>
+
           <button id="deleteBtn" type="button" disabled
-                  class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 hover:bg-rose-500 transition">
+            class="w-full rounded-lg bg-rose-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 hover:bg-rose-500 transition">
             Delete
           </button>
-        </div>
 
-        <div class="mt-4">
           <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700 smooth">
             <div id="progressBar" class="h-2 bg-indigo-500 w-0 transition-all"></div>
           </div>
-          <p id="statusLine" class="mt-3 text-sm text-slate-400"></p>
-          <p id="savingsLine" class="mt-1 text-sm text-emerald-300"></p>
-        </div>
 
-        <div class="mt-4">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-slate-200">Log tail</h3>
-            <button id="copyLog" type="button" class="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition smooth">Copy</button>
+          <p id="statusLine" class="text-sm text-slate-400"></p>
+          <p id="savingsLine" class="text-sm text-slate-400"></p>
+
+          <div class="mt-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-slate-200">Log tail</h3>
+              <button id="copyLog" type="button"
+                class="text-xs px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 transition smooth">
+                Copy
+              </button>
+            </div>
+            <pre id="logBox"
+              class="mt-2 text-xs bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-auto max-h-64 smooth">(log will appear here)</pre>
           </div>
-          <pre id="logBox" class="mt-2 text-xs bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-auto max-h-[28rem] smooth">(log will appear here)</pre>
         </div>
       </section>
     </main>
+  </div>
 
-    <footer class="mt-10 text-xs text-slate-400">
-      <details class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 smooth">
-        <summary class="cursor-pointer font-semibold text-slate-200">Changelog</summary>
-        <pre class="mt-3 whitespace-pre-wrap text-slate-200">v0.5.4 — History shows sizes + savings
-- Job history shows original filename, old/new size, and % saving once complete
-- Status panel still shows savings and download uses “-optimised” name</pre>
-      </details>
-      <div class="mt-4 text-slate-400">
+  <!-- Fixed footer bar -->
+  <footer class="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950/90 backdrop-blur smooth">
+    <div class="max-w-3xl mx-auto px-5 py-3 flex items-center justify-between gap-3">
+      <button id="openChangelog"
+        class="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 smooth">
+        Changelog
+      </button>
+
+      <div class="text-xs text-slate-400">
         Made with ❤️ by
         <a href="https://patchharris.info" target="_blank" rel="noopener"
-           class="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-400/40">
+          class="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-400/40">
           Patch Harris
         </a>
       </div>
-    </footer>
-  </div>
+    </div>
+  </footer>
+
+  <!-- Changelog drawer (slides up) -->
+  <div id="changelogBackdrop"
+    class="fixed inset-0 z-50 bg-black/60 opacity-0 pointer-events-none smooth"></div>
+
+  <aside id="changelogPanel"
+    class="fixed left-0 right-0 bottom-0 z-50 max-w-3xl mx-auto
+           translate-y-full opacity-100 smooth">
+    <div class="mx-3 mb-3 rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+        <div class="text-sm font-semibold">Changelog</div>
+        <button id="closeChangelog"
+          class="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 smooth">
+          Close
+        </button>
+      </div>
+
+      <div class="p-4 max-h-[60vh] overflow-auto">
+        <pre class="whitespace-pre-wrap text-xs text-slate-200 leading-relaxed">### v0.5.4 — History shows sizes + savings
+- Job history shows original filename, old/new size, and % saving once complete
+- Status panel still shows savings and download uses “-optimised” name
+
+### v0.5.0 — More processing controls
+- Added Mode (Best/Fast)
+- Added Output type (PDF / PDF-A2)
+- Added Optimize levels (0–3)
+- Added Force OCR (even if text exists)
+
+### v0.4.1 — Mobile upload fix
+- Fixed iOS “click to browse” reliability (no DataTransfer hacks)
+
+### v0.4.0 — UI+
+- Modernized UI styling
+- Drag & drop PDF upload + click-to-browse fallback
+- Light/Dark theme toggle (saved locally)
+- Job history list (saved locally)
+- Job status panel with log tail + copy
+
+### v0.3.0 — Production engine foundation
+- Dockerized API + engine wiring for job processing
+- Basic upload → process → status → download endpoints
+
+### v0.2.0 — Web app baseline
+- Added FastAPI web UI scaffold
+- Added persistent data volume support
+
+### v0.1.0 — Project start
+- Initial ClearScan OSS concept + first working pipeline</pre>
+      </div>
+    </div>
+  </aside>
 
   <script src="/static/app.js"></script>
 </body>
