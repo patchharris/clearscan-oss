@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-APP_VERSION = "v0.6.0"
+APP_VERSION = "v0.6.1"
 
 APP_DIR = Path(__file__).resolve().parent
 ENGINE = Path("/srv/engine/clearscan_engine.py")
@@ -290,3 +290,4 @@ def delete(job_id: str):
         return JSONResponse({"error": "Not found"}, status_code=404)
     shutil.rmtree(paths["base"], ignore_errors=True)
     return {"ok": True}
+

@@ -57,7 +57,7 @@ async function loadVersion() {
     const v = await res.json();
     if (buildInfo) {
       const sha = v.git_sha ? ` (${String(v.git_sha).slice(0,7)})` : "";
-      buildInfo.textContent = `${v.version || "v0.6.0"}${sha}`;
+      buildInfo.textContent = `${v.version || "v0.6.1"}${sha}`;
     }
   } catch {}
 }
@@ -443,5 +443,6 @@ changelogBackdrop?.addEventListener("click", closeChangelog);
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeChangelog();
 });
+
 
 
