@@ -226,68 +226,6 @@ clearHistoryBtn?.addEventListener("click", async () => {
 renderHistory();
 
 
-}
-function renderHistory() {
-  const items = loadHistory();
-  historyList.innerHTML = "";
-
-  if (!items.length) {
-    historyList.innerHTML =
-      `<li class="text-xs text-slate-400">No jobs yet.</li>`;
-    return;
-  }
-
-  for (const item of items) {
-    const li = document.createElement("li");
-    li.className = "rounded-lg bg-slate-950/60 border border-slate-800 px-3 py-2";
-
-    const when = item.ts ? new Date(item.ts).toLocaleString() : "";
-    const sizesKnown =
-      typeof item.inputBytes === "number" &&
-      typeof item.outputBytes === "number" &&
-      typeof item.savingsPct === "number";
-
-    const sizesText = sizesKnown
-      ? `${humanBytes(item.inputBytes)} → ${humanBytes(item.outputBytes)} (-${Math.abs(item.savingsPct).toFixed(2)}%)`
-      : "Sizes: pending…";
-
-    li.innerHTML = `
-      <div class="flex items-center justify-between gap-3">
-        <div class="min-w-0">
-          <div class="text-sm font-semibold truncate">${item.filename || "(unknown.pdf)"}</div>
-          <div class="text-[11px] text-slate-400 font-mono truncate">${item.jobId}</div>
-          <div class="text-[11px] text-slate-400">${when}</div>
-          <div class="text-[11px] text-slate-400 mt-1">${sizesText}</div>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button class="useJob text-xs px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800">Use</button>
-          <button class="dlJob text-xs px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500">DL</button>
-        </div>
-      </div>
-    `;
-
-    li.querySelector(".useJob").addEventListener("click", async () => {
-      jobIdInput.value = item.jobId;
-      await refresh(item.jobId, true);
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(() => refresh(item.jobId, true), 1500);
-    });
-
-    li.querySelector(".dlJob").addEventListener("click", () => {
-      window.location.href = `/api/download/${item.jobId}`;
-    });
-
-    historyList.appendChild(li);
-  }
-}
-
-clearHistoryBtn?.addEventListener("click", () => {
-  saveHistory([]);
-  renderHistory();
-});
-
-renderHistory();
-
 // --- Status logic ---
 async function fetchStatus(jobId) {
   const res = await fetch(`/api/status/${jobId}`);
@@ -349,7 +287,7 @@ async function refresh(jobId, updateHistory = false) {
       `Size: ${humanBytes(inB)} → ${humanBytes(outB)} (-${Math.abs(pct).toFixed(2)}%, saved ${humanBytes(Math.abs(savedB))})`;
 
     if (updateHistory) {
-      upsertHistory({
+      upsertLocalHistory({
         jobId,
         filename: data.meta?.filename,
         ts: data.meta?.created || new Date().toISOString(),
@@ -361,7 +299,7 @@ async function refresh(jobId, updateHistory = false) {
   } else {
     savingsLine.textContent = "";
     if (updateHistory) {
-      upsertHistory({
+      upsertLocalHistory({
         jobId,
         filename: data.meta?.filename,
         ts: data.meta?.created || new Date().toISOString(),
@@ -399,7 +337,7 @@ uploadForm.addEventListener("submit", async (e) => {
   jobInfo.textContent = `Job created: ${jobId}`;
   jobIdInput.value = jobId;
 
-  upsertHistory({
+  upsertLocalHistory({
     jobId,
     filename: data.filename,
     ts: new Date().toISOString(),
@@ -442,9 +380,9 @@ deleteBtn.addEventListener("click", async () => {
   setPill("idle");
   setButtons(false, false);
 
-  const items = loadHistory().filter((x) => x.jobId !== jobId);
-  saveHistory(items);
-  renderHistory();
+  const items = loadLocalHistory().filter((x) => x.jobId !== jobId);
+  saveLocalHistory(items);
+  await renderHistory();
 
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
@@ -492,3 +430,4 @@ changelogBackdrop?.addEventListener("click", closeChangelog);
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeChangelog();
 });
+
