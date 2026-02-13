@@ -403,31 +403,45 @@ const changelogBackdrop = document.getElementById("changelogBackdrop");
 const changelogPanel = document.getElementById("changelogPanel");
 
 function openChangelog() {
+  if (!changelogBackdrop || !changelogPanel) return;
+
   changelogBackdrop.classList.remove("pointer-events-none", "opacity-0");
   changelogBackdrop.classList.add("opacity-100");
 
   changelogPanel.classList.remove("translate-y-full");
+  changelogPanel.style.transform = "translateY(0)";
+
   // lock background scroll (mobile friendly)
   document.documentElement.style.overflow = "hidden";
   document.body.style.overflow = "hidden";
 }
 
 function closeChangelog() {
+  if (!changelogBackdrop || !changelogPanel) return;
+
   changelogBackdrop.classList.add("pointer-events-none", "opacity-0");
   changelogBackdrop.classList.remove("opacity-100");
 
   changelogPanel.classList.add("translate-y-full");
+  changelogPanel.style.transform = "translateY(100%)";
 
   document.documentElement.style.overflow = "";
   document.body.style.overflow = "";
 }
 
-openChangelogBtn?.addEventListener("click", openChangelog);
-closeChangelogBtn?.addEventListener("click", closeChangelog);
+openChangelogBtn?.addEventListener("click", (e) => {
+  e.preventDefault();
+  openChangelog();
+});
+closeChangelogBtn?.addEventListener("click", (e) => {
+  e.preventDefault();
+  closeChangelog();
+});
 changelogBackdrop?.addEventListener("click", closeChangelog);
 
 // ESC to close (desktop)
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeChangelog();
 });
+
 
