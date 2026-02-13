@@ -7,8 +7,35 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="dark light">
   <style>
-    .smooth { transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .25s ease, opacity .25s ease; }
-  </style>
+  .smooth { transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .25s ease, opacity .25s ease; }
+
+  body.theme-light {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  body.theme-light .bg-slate-950,
+  body.theme-light .bg-slate-950\/90,
+  body.theme-light .bg-slate-950\/60,
+  body.theme-light .bg-slate-900,
+  body.theme-light .bg-slate-900\/60,
+  body.theme-light .bg-slate-800 {
+    background-color: #ffffff !important;
+  }
+
+  body.theme-light .text-slate-100,
+  body.theme-light .text-slate-200,
+  body.theme-light .text-slate-300,
+  body.theme-light .text-slate-400,
+  body.theme-light .text-slate-500 {
+    color: #334155 !important;
+  }
+
+  body.theme-light .border-slate-700,
+  body.theme-light .border-slate-800 {
+    border-color: #cbd5e1 !important;
+  }
+</style>
 </head>
 
 <body class="h-full bg-slate-950 text-slate-100 smooth">
@@ -221,6 +248,7 @@
         <pre class="whitespace-pre-wrap text-xs text-slate-200 leading-relaxed">### v0.6.1 — Frontend stability fixes
 - Fixed broken JavaScript caused by merged duplicate history code
 - Restored working changelog drawer open/close behavior
+- Fixed theme toggle so light/dark mode updates the full UI and button label
 
 ### v0.5.4 — History shows sizes + savings
 - Job history shows original filename, old/new size, and % saving once complete
@@ -259,6 +287,8 @@
   <script src="/static/app.js?v=0.6.1"></script>
 </body>
 </html>
+
+
 
 
 

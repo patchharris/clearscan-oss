@@ -28,25 +28,37 @@ let pollTimer = null;
 
 // --- Theme ---
 const THEME_KEY = "clearscan_theme";
+
+function updateThemeToggleLabel(theme) {
+  if (!themeToggle) return;
+  themeToggle.textContent = theme === "light" ? "Switch to dark" : "Switch to light";
+}
+
 function applyTheme(theme) {
   const body = document.body;
-  if (theme === "light") {
-    body.classList.remove("bg-slate-950", "text-slate-100");
-    body.classList.add("bg-slate-50", "text-slate-900");
-    document.documentElement.style.colorScheme = "light";
-  } else {
-    body.classList.remove("bg-slate-50", "text-slate-900");
-    body.classList.add("bg-slate-950", "text-slate-100");
-    document.documentElement.style.colorScheme = "dark";
-  }
+  const isLight = theme === "light";
+
+  body.classList.toggle("theme-light", isLight);
+  body.classList.toggle("theme-dark", !isLight);
+  body.classList.toggle("bg-slate-50", isLight);
+  body.classList.toggle("text-slate-900", isLight);
+  body.classList.toggle("bg-slate-950", !isLight);
+  body.classList.toggle("text-slate-100", !isLight);
+
+  document.documentElement.style.colorScheme = isLight ? "light" : "dark";
+  updateThemeToggleLabel(theme);
 }
+
 function getTheme() {
-  return localStorage.getItem(THEME_KEY) || "dark";
+  const stored = localStorage.getItem(THEME_KEY);
+  return stored === "light" ? "light" : "dark";
 }
+
 function setTheme(theme) {
   localStorage.setItem(THEME_KEY, theme);
   applyTheme(theme);
 }
+
 applyTheme(getTheme());
 // --- Build/version info ---
 const buildInfo = document.getElementById("buildInfo");
@@ -443,6 +455,7 @@ changelogBackdrop?.addEventListener("click", closeChangelog);
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeChangelog();
 });
+
 
 
 
