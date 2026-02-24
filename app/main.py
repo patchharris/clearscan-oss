@@ -13,10 +13,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-APP_VERSION = "v0.6.2"
+APP_VERSION = "v0.7.0"
 
 APP_DIR = Path(__file__).resolve().parent
 ENGINE = Path("/srv/engine/clearscan_engine.py")
+VECTORSCAN_ENGINE = Path("/srv/engine/vectorscan_engine.py")
 
 JOBS_DIR = Path(os.getenv("JOBS_DIR", "/data/jobs"))
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "500"))
@@ -67,7 +68,7 @@ def write_status(p: Path, state: str, **extra):
     p.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str, optimize: str):
+def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str, optimize: str, vectorise: bool = False):
     paths = job_paths(job_id)
     base = paths["base"]
     log_path = paths["log"]
@@ -76,9 +77,10 @@ def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str
     write_status(paths["status"], "running")
     paths["out_dir"].mkdir(parents=True, exist_ok=True)
 
+    engine = VECTORSCAN_ENGINE if vectorise else ENGINE
     cmd = [
         "python3",
-        str(ENGINE),
+        str(engine),
         str(paths["input"]),
         "--out",
         str(out_pdf),
@@ -130,7 +132,7 @@ def run_job(job_id: str, lang: str, mode: str, force_ocr: bool, output_type: str
         write_status(paths["status"], "error", exit_code=rc)
 
 
-def create_job_from_upload(file: UploadFile, contents: bytes, lang: str, mode: str, force_ocr: bool, output_type: str, optimize: str):
+def create_job_from_upload(file: UploadFile, contents: bytes, lang: str, mode: str, force_ocr: bool, output_type: str, optimize: str, vectorise: bool = False):
     size_mb = len(contents) / (1024 * 1024)
     if size_mb > MAX_UPLOAD_MB:
         return None, f"File too large: {size_mb:.1f}MB (max {MAX_UPLOAD_MB}MB)"
@@ -152,6 +154,7 @@ def create_job_from_upload(file: UploadFile, contents: bytes, lang: str, mode: s
                 "force_ocr": force_ocr,
                 "output_type": output_type,
                 "optimize": optimize,
+                "vectorise": vectorise,
                 "input_bytes": len(contents),
             },
             indent=2,
@@ -163,7 +166,7 @@ def create_job_from_upload(file: UploadFile, contents: bytes, lang: str, mode: s
 
     t = threading.Thread(
         target=run_job,
-        args=(job_id, lang, mode, force_ocr, output_type, optimize),
+        args=(job_id, lang, mode, force_ocr, output_type, optimize, vectorise),
         daemon=True,
     )
     t.start()
@@ -231,9 +234,10 @@ async def upload_pdf(
     force_ocr: bool = Form(False),
     output_type: str = Form("pdf"),
     optimize: str = Form("3"),
+    vectorise: bool = Form(False),
 ):
     contents = await file.read()
-    job, err = create_job_from_upload(file, contents, lang, mode, force_ocr, output_type, optimize)
+    job, err = create_job_from_upload(file, contents, lang, mode, force_ocr, output_type, optimize, vectorise)
     if err:
         return JSONResponse({"error": err}, status_code=413)
     return job
@@ -247,6 +251,7 @@ async def upload_pdf_batch(
     force_ocr: bool = Form(False),
     output_type: str = Form("pdf"),
     optimize: str = Form("3"),
+    vectorise: bool = Form(False),
 ):
     if not files:
         return JSONResponse({"error": "No files provided"}, status_code=400)
@@ -255,7 +260,7 @@ async def upload_pdf_batch(
     errors = []
     for file in files:
         contents = await file.read()
-        job, err = create_job_from_upload(file, contents, lang, mode, force_ocr, output_type, optimize)
+        job, err = create_job_from_upload(file, contents, lang, mode, force_ocr, output_type, optimize, vectorise)
         if err:
             errors.append({
                 "filename": safe_filename(file.filename or "document.pdf"),

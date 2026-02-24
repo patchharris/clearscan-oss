@@ -383,6 +383,7 @@ uploadForm.addEventListener("submit", async (e) => {
     batchData.append("output_type", String(formData.get("output_type") || "pdf"));
     batchData.append("optimize", String(formData.get("optimize") || "3"));
     batchData.append("force_ocr", formData.has("force_ocr") ? "true" : "false");
+    batchData.append("vectorise", formData.has("vectorise") ? "true" : "false");
     requestBody = batchData;
   }
 

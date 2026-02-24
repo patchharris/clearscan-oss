@@ -135,6 +135,16 @@
                 Force OCR (even if text exists)
               </label>
             </div>
+
+            <div class="sm:col-span-2">
+              <label class="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 cursor-pointer hover:bg-slate-900/70 smooth select-none">
+                <input name="vectorise" type="checkbox" class="mt-0.5 h-4 w-4 accent-indigo-500 shrink-0">
+                <div>
+                  <div class="text-sm font-semibold text-slate-200">Vectorise Fonts <span class="ml-1 text-xs font-normal text-indigo-400 bg-indigo-900/40 border border-indigo-800/60 px-1.5 py-0.5 rounded">ClearScan</span></div>
+                  <div class="text-xs text-slate-400 mt-0.5">Replace raster glyphs with vectorised Type 3 font outlines. Produces crisper text at any zoom level.</div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <button type="submit"
@@ -219,7 +229,7 @@
       </button>
 
       <div class="text-xs text-slate-400">
-        <span id="buildInfo" class="text-slate-500 mr-2">v0.6.2</span>Made with ❤️ by
+        <span id="buildInfo" class="text-slate-500 mr-2">v0.7.0</span>Made with ❤️ by
         <a href="https://patchharris.info" target="_blank" rel="noopener"
           class="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-400/40">
           Patch Harris
@@ -245,7 +255,13 @@
       </div>
 
       <div class="p-4 max-h-[60vh] overflow-auto">
-        <pre class="whitespace-pre-wrap text-xs text-slate-200 leading-relaxed">### v0.6.2 — Batch upload
+        <pre class="whitespace-pre-wrap text-xs text-slate-200 leading-relaxed">### v0.7.0 — Vectorise Fonts (ClearScan)
+- New "Vectorise Fonts" option: replaces raster scan glyphs with Type 3 vector font outlines
+- Full pipeline: PyMuPDF render → Tesseract char boxes → VTracer/potrace → PDF Type 3 font
+- Falls back to standard ocrmypdf if vectorisation dependencies are unavailable
+- New system packages: potrace, tesseract-ocr-eng
+
+### v0.6.2 — Batch upload
 - Added batch PDF upload support from the web UI
 - Added backend /api/upload-batch endpoint to queue multiple files in one request
 
@@ -288,7 +304,7 @@
     </div>
   </aside>
 
-  <script src="/static/app.js?v=0.6.2"></script>
+  <script src="/static/app.js?v=0.7.0"></script>
 </body>
 </html>
 

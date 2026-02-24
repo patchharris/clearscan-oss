@@ -2,7 +2,12 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends     python3 python3-venv python3-pip     ocrmypdf ghostscript tesseract-ocr qpdf unpaper pngquant     ca-certificates     && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip \
+    ocrmypdf ghostscript tesseract-ocr tesseract-ocr-eng qpdf unpaper pngquant \
+    potrace \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /srv
 COPY requirements.txt /srv/requirements.txt
